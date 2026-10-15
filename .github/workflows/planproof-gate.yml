@@ -1,0 +1,34 @@
+name: PlanProof Risk Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  risk-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Run Unit Tests
+        run: go test ./... -v
+
+      - name: Verify Safe Plan (Must Pass)
+        run: go run cmd/planproof/main.go testdata/safe_plan.json
+
+      - name: Verify Unsafe Plan Detection (Must Block)
+        run: |
+          if go run cmd/planproof/main.go testdata/unsafe_plan.json; then
+            echo "Error: Unsafe plan was not blocked!"
+            exit 1
+          else
+            echo "Success: Unsafe stateful change correctly intercepted and blocked."
+          fi
