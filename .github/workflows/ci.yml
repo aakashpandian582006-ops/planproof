@@ -1,0 +1,33 @@
+name: PlanProof CI Risk Gate
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Run Unit Tests
+      run: go test ./... -v
+
+    - name: Build PlanProof Binary
+      run: go build -o planproof cmd/planproof/main.go
+
+    - name: Validate Safe Terraform Plan
+      run: ./planproof testdata/safe_plan.json
+
+    - name: Validate Unsafe Terraform Plan (Expected Failure)
+      run: |
+        ./planproof testdata/unsafe_plan.json && exit 1 || echo "Unsafe plan correctly blocked by PlanProof Risk Gate!"

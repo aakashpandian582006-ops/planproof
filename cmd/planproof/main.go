@@ -22,30 +22,33 @@ func main() {
 
 	report, err := analyzer.AnalyzePlan(planData)
 	if err != nil {
-		fmt.Printf("Analysis error: %v\n", err)
+		fmt.Printf("Error analyzing plan: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("==================================================")
-	fmt.Println("   PLANPROOF: TERRAFORM RISK GATE ANALYSIS REPORT")
+	fmt.Println("  PLANPROOF: TERRAFORM RISK GATE ANALYSIS REPORT  ")
 	fmt.Println("==================================================")
 	fmt.Printf("Total Resource Changes Evaluated: %d\n", report.TotalChanges)
 	fmt.Printf("Calculated Risk Score:           %d\n", report.RiskScore)
 
 	if report.IsUnsafe {
 		fmt.Println("Status:                          [FAILED] UNACCEPTABLE RISK DETECTED")
-		fmt.Println("--------------------------------------------------")
-		fmt.Println("Violations Found:")
+		fmt.Println("\nViolations Found:")
 		for _, v := range report.Violations {
-			fmt.Printf("  - %s\n", v)
+			fmt.Printf(" - %s\n", v)
 		}
-		fmt.Println("--------------------------------------------------")
-		fmt.Println("Pipeline Action: Halting deployment to prevent stateful data loss.")
+		if len(report.Remediations) > 0 {
+			fmt.Println("\nActionable Remediation Guidance:")
+			for _, r := range report.Remediations {
+				fmt.Printf(" - %s\n", r)
+			}
+		}
+		fmt.Println("\nPipeline Action: Halting deployment to prevent stateful data loss.")
 		os.Exit(1)
-	} else {
-		fmt.Println("Status:                          [PASSED] SAFE TO APPLY")
-		fmt.Println("--------------------------------------------------")
-		fmt.Println("No destructive stateful resource changes detected.")
-		os.Exit(0)
 	}
+
+	fmt.Println("Status:                          [PASSED] SAFE TO APPLY")
+	fmt.Println("\nNo destructive stateful resource changes detected.")
+	os.Exit(0)
 }
