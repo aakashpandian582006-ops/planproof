@@ -1,0 +1,33 @@
+name: PlanProof IaC Risk Gate Analysis
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  planproof-security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run Automated Test Suite
+        run: go test ./... -v
+
+      - name: Build PlanProof Binary Engine
+        run: go build -o planproof main.go
+
+      - name: Run Risk Analysis on Safe Plan (Must Pass)
+        run: ./planproof -plan testdata/aws_demo/aws_production_plan.json -threshold 50
+
+      - name: Verify Risk Gate Interception on Unsafe Plan (Must Block)
+        run: |
+          ./planproof -plan testdata/aws_demo/aws_unsafe_plan.json -threshold 50 && exit 1 || echo "PlanProof Risk Gate successfully intercepted and blocked unsafe stateful changes."

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.0",
+  "resource_changes": [
+    {
+      "address": "aws_security_group.bastion_sg",
+      "type": "aws_security_group",
+      "name": "bastion_sg",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "description": "Publicly accessible security group with SSH",
+          "ingress": [
+            {
+              "cidr_blocks": ["0.0.0.0/0"],
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

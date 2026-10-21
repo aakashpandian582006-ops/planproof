@@ -1,0 +1,17 @@
+# Binaries
+planproof
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Test artifacts & OS files
+.DS_Store
+*.test
+*.out

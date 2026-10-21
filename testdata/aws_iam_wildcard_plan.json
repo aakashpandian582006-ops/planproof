@@ -1,0 +1,18 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.0",
+  "resource_changes": [
+    {
+      "address": "aws_iam_policy.overly_permissive_admin",
+      "type": "aws_iam_policy",
+      "name": "overly_permissive_admin",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "OverlyPermissiveAdmin",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}"
+        }
+      }
+    }
+  ]
+}
