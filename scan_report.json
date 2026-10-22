@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-10-22T09:58:17.241696Z",
+  "tool": "PlanProof",
+  "version": "1.2.0",
+  "target_plan": "testdata/aws_demo/aws_unsafe_plan.json",
+  "policy_name": "Enterprise Baseline Security Policy",
+  "policy_version": "1.0",
+  "gate_status": "FAILED",
+  "is_unsafe": true,
+  "gate_action": "Deployment halted. Risk score 50 (threshold: 50) or Critical risks identified.",
+  "risk_score": 50,
+  "threshold": 50,
+  "total_changes_evaluated": 1,
+  "total_violations": 1,
+  "severity_summary": {
+    "critical": 1,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "rule_violations": [
+    {
+      "rule_id": "STATE-001",
+      "rule_name": "Stateful Resource Destruction Guard",
+      "severity": "CRITICAL",
+      "resource_address": "aws_db_instance.prod_db",
+      "resource_type": "aws_db_instance",
+      "description": "Stateful resource 'aws_db_instance.prod_db' (aws_db_instance) is scheduled for DESTRUCTION without disaster recovery validation.",
+      "remediation": "Add 'lifecycle { prevent_destroy = true }' to 'aws_db_instance.prod_db' block or enable deletion protection.",
+      "risk_score": 50
+    }
+  ]
+}
