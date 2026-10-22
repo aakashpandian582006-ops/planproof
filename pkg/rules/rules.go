@@ -54,18 +54,28 @@ type RuleEngine struct {
 	rules []Rule
 }
 
-// NewRuleEngine initializes a RuleEngine with all standard enterprise AWS rules.
+// NewRuleEngine initializes a RuleEngine with all standard enterprise AWS, Azure, and GCP rules.
 func NewRuleEngine() *RuleEngine {
 	engine := &RuleEngine{
 		rules: make([]Rule, 0),
 	}
 
+	// 1. AWS & Stateful Guardrails
 	engine.Register(&StatefulDestructionRule{})
 	engine.Register(&S3EncryptionRule{})
 	engine.Register(&S3PublicACLRule{})
 	engine.Register(&OpenSSHRule{})
 	engine.Register(&OpenRDPRule{})
 	engine.Register(&IAMWildcardRule{})
+	engine.Register(&RDSPublicAccessRule{})
+
+	// 2. Azure Guardrails
+	engine.Register(&AzureStoragePublicAccessRule{})
+	engine.Register(&AzureSQLOpenFirewallRule{})
+
+	// 3. GCP Guardrails
+	engine.Register(&GCPStorageBucketSecurityRule{})
+	engine.Register(&GCPSQLOpenIngressRule{})
 
 	return engine
 }
@@ -688,3 +698,251 @@ func extractStrings(val interface{}) []string {
 		return nil
 	}
 }
+
+func getBoolVal(m map[string]interface{}, key string) (bool, bool) {
+	if m == nil {
+		return false, false
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return false, false
+	}
+	switch val := v.(type) {
+	case bool:
+		return val, true
+	case string:
+		if strings.ToLower(val) == "true" {
+			return true, true
+		} else if strings.ToLower(val) == "false" {
+			return false, true
+		}
+	}
+	return false, false
+}
+
+// ============================================================================
+// MULTI-CLOUD EXPANDED RULES (AWS, AZURE, GCP)
+// ============================================================================
+
+// --- 7. RDS Public Accessibility Rule (AWS-RDS-001) ---
+type RDSPublicAccessRule struct{}
+
+func (r *RDSPublicAccessRule) ID() string               { return "AWS-RDS-001" }
+func (r *RDSPublicAccessRule) Name() string             { return "RDS Instance Publicly Accessible" }
+func (r *RDSPublicAccessRule) DefaultSeverity() Severity { return SeverityCritical }
+
+func (r *RDSPublicAccessRule) Evaluate(rc *ResourceChange, allResources []ResourceChange) []Violation {
+	if rc.Type != "aws_db_instance" || !isCreateOrUpdate(rc.Change.Actions) {
+		return nil
+	}
+
+	after := rc.Change.After
+	if after == nil {
+		return nil
+	}
+
+	if isPublic, ok := getBoolVal(after, "publicly_accessible"); ok && isPublic {
+		return []Violation{
+			{
+				RuleID:          r.ID(),
+				RuleName:        r.Name(),
+				Severity:        SeverityCritical,
+				ResourceAddress: rc.Address,
+				ResourceType:    rc.Type,
+				Description:     fmt.Sprintf("RDS database instance '%s' is configured with public accessibility ('publicly_accessible = true').", rc.Address),
+				Remediation:     fmt.Sprintf("Set 'publicly_accessible = false' on '%s' and place the database within private isolated VPC subnets.", rc.Address),
+				RiskScore:       50,
+			},
+		}
+	}
+	return nil
+}
+
+// --- 8. Azure Storage Account Public Access (AZURE-BLOB-001) ---
+type AzureStoragePublicAccessRule struct{}
+
+func (r *AzureStoragePublicAccessRule) ID() string               { return "AZURE-BLOB-001" }
+func (r *AzureStoragePublicAccessRule) Name() string             { return "Azure Storage Account Allows Public Blob Access" }
+func (r *AzureStoragePublicAccessRule) DefaultSeverity() Severity { return SeverityCritical }
+
+func (r *AzureStoragePublicAccessRule) Evaluate(rc *ResourceChange, allResources []ResourceChange) []Violation {
+	if rc.Type != "azurerm_storage_account" || !isCreateOrUpdate(rc.Change.Actions) {
+		return nil
+	}
+
+	after := rc.Change.After
+	if after == nil {
+		return nil
+	}
+
+	isPublic := false
+	if val, ok := getBoolVal(after, "allow_nested_items_to_be_public"); ok && val {
+		isPublic = true
+	}
+	if val, ok := getBoolVal(after, "allow_blob_public_access"); ok && val {
+		isPublic = true
+	}
+
+	if isPublic {
+		return []Violation{
+			{
+				RuleID:          r.ID(),
+				RuleName:        r.Name(),
+				Severity:        SeverityCritical,
+				ResourceAddress: rc.Address,
+				ResourceType:    rc.Type,
+				Description:     fmt.Sprintf("Azure Storage Account '%s' permits public unauthenticated access to blobs or containers.", rc.Address),
+				Remediation:     fmt.Sprintf("Set 'allow_nested_items_to_be_public = false' (or 'allow_blob_public_access = false') in '%s'.", rc.Address),
+				RiskScore:       50,
+			},
+		}
+	}
+	return nil
+}
+
+// --- 9. Azure Database Unrestricted Ingress (AZURE-SQL-001) ---
+type AzureSQLOpenFirewallRule struct{}
+
+func (r *AzureSQLOpenFirewallRule) ID() string               { return "AZURE-SQL-001" }
+func (r *AzureSQLOpenFirewallRule) Name() string             { return "Azure Database Firewall Allows 0.0.0.0 Open Ingress" }
+func (r *AzureSQLOpenFirewallRule) DefaultSeverity() Severity { return SeverityCritical }
+
+func (r *AzureSQLOpenFirewallRule) Evaluate(rc *ResourceChange, allResources []ResourceChange) []Violation {
+	azureDBRules := map[string]bool{
+		"azurerm_postgresql_firewall_rule": true,
+		"azurerm_mssql_firewall_rule":      true,
+		"azurerm_sql_firewall_rule":        true,
+		"azurerm_mysql_firewall_rule":      true,
+	}
+
+	if !azureDBRules[rc.Type] || !isCreateOrUpdate(rc.Change.Actions) {
+		return nil
+	}
+
+	after := rc.Change.After
+	if after == nil {
+		return nil
+	}
+
+	startIP := getStringVal(after, "start_ip_address")
+	endIP := getStringVal(after, "end_ip_address")
+
+	if startIP == "0.0.0.0" && (endIP == "0.0.0.0" || endIP == "255.255.255.255") {
+		return []Violation{
+			{
+				RuleID:          r.ID(),
+				RuleName:        r.Name(),
+				Severity:        SeverityCritical,
+				ResourceAddress: rc.Address,
+				ResourceType:    rc.Type,
+				Description:     fmt.Sprintf("Azure database firewall rule '%s' opens ingress to 0.0.0.0 (enabling access from all Azure IPs or entire public internet).", rc.Address),
+				Remediation:     fmt.Sprintf("Remove 0.0.0.0 ingress in '%s' and enforce connectivity via Azure Private Endpoint.", rc.Address),
+				RiskScore:       50,
+			},
+		}
+	}
+	return nil
+}
+
+// --- 10. GCP Cloud Storage Missing Uniform Bucket Access (GCP-GCS-001) ---
+type GCPStorageBucketSecurityRule struct{}
+
+func (r *GCPStorageBucketSecurityRule) ID() string               { return "GCP-GCS-001" }
+func (r *GCPStorageBucketSecurityRule) Name() string             { return "GCP Storage Bucket Missing Uniform Bucket-Level Access" }
+func (r *GCPStorageBucketSecurityRule) DefaultSeverity() Severity { return SeverityHigh }
+
+func (r *GCPStorageBucketSecurityRule) Evaluate(rc *ResourceChange, allResources []ResourceChange) []Violation {
+	if rc.Type != "google_storage_bucket" || !isCreateOrUpdate(rc.Change.Actions) {
+		return nil
+	}
+
+	after := rc.Change.After
+	if after == nil {
+		return nil
+	}
+
+	ubla, ok := getBoolVal(after, "uniform_bucket_level_access")
+	if !ok || !ubla {
+		return []Violation{
+			{
+				RuleID:          r.ID(),
+				RuleName:        r.Name(),
+				Severity:        SeverityHigh,
+				ResourceAddress: rc.Address,
+				ResourceType:    rc.Type,
+				Description:     fmt.Sprintf("GCP Cloud Storage bucket '%s' does not enforce Uniform Bucket-Level Access (UBLA), risking unauthorized object ACL exposure.", rc.Address),
+				Remediation:     fmt.Sprintf("Set 'uniform_bucket_level_access = true' on '%s' to enforce IAM-based uniform permissions.", rc.Address),
+				RiskScore:       25,
+			},
+		}
+	}
+	return nil
+}
+
+// --- 11. GCP Cloud SQL Open Authorized Networks (GCP-SQL-001) ---
+type GCPSQLOpenIngressRule struct{}
+
+func (r *GCPSQLOpenIngressRule) ID() string               { return "GCP-SQL-001" }
+func (r *GCPSQLOpenIngressRule) Name() string             { return "GCP Cloud SQL Allows Unrestricted Ingress (0.0.0.0/0)" }
+func (r *GCPSQLOpenIngressRule) DefaultSeverity() Severity { return SeverityCritical }
+
+func (r *GCPSQLOpenIngressRule) Evaluate(rc *ResourceChange, allResources []ResourceChange) []Violation {
+	if rc.Type != "google_sql_database_instance" || !isCreateOrUpdate(rc.Change.Actions) {
+		return nil
+	}
+
+	after := rc.Change.After
+	if after == nil {
+		return nil
+	}
+
+	settings, ok := after["settings"].(map[string]interface{})
+	if !ok || settings == nil {
+		if list, ok := after["settings"].([]interface{}); ok && len(list) > 0 {
+			if m, ok := list[0].(map[string]interface{}); ok {
+				settings = m
+			}
+		}
+	}
+
+	if settings == nil {
+		return nil
+	}
+
+	ipConfig, ok := settings["ip_configuration"].(map[string]interface{})
+	if !ok || ipConfig == nil {
+		if list, ok := settings["ip_configuration"].([]interface{}); ok && len(list) > 0 {
+			if m, ok := list[0].(map[string]interface{}); ok {
+				ipConfig = m
+			}
+		}
+	}
+
+	if ipConfig == nil {
+		return nil
+	}
+
+	authNets := getSliceVal(ipConfig, "authorized_networks")
+	for _, an := range authNets {
+		if m, ok := an.(map[string]interface{}); ok {
+			val := getStringVal(m, "value")
+			if val == "0.0.0.0/0" {
+				return []Violation{
+					{
+						RuleID:          r.ID(),
+						RuleName:        r.Name(),
+						Severity:        SeverityCritical,
+						ResourceAddress: rc.Address,
+						ResourceType:    rc.Type,
+						Description:     fmt.Sprintf("GCP Cloud SQL instance '%s' authorizes public network ingress from 0.0.0.0/0.", rc.Address),
+						Remediation:     fmt.Sprintf("Remove '0.0.0.0/0' from 'authorized_networks' in '%s' and use Cloud SQL Auth Proxy or VPC Private Service Access.", rc.Address),
+						RiskScore:       50,
+					},
+				}
+			}
+		}
+	}
+
+	return nil
+}
+

@@ -94,6 +94,36 @@ func DefaultConfig() *PolicyConfig {
 				Severity:  "CRITICAL",
 				RiskScore: intPtr(50),
 			},
+			"AWS-RDS-001": {
+				Name:      "RDS Instance Publicly Accessible",
+				Enabled:   &enabled,
+				Severity:  "CRITICAL",
+				RiskScore: intPtr(50),
+			},
+			"AZURE-BLOB-001": {
+				Name:      "Azure Storage Account Allows Public Blob Access",
+				Enabled:   &enabled,
+				Severity:  "CRITICAL",
+				RiskScore: intPtr(50),
+			},
+			"AZURE-SQL-001": {
+				Name:      "Azure Database Firewall Allows 0.0.0.0 Open Ingress",
+				Enabled:   &enabled,
+				Severity:  "CRITICAL",
+				RiskScore: intPtr(50),
+			},
+			"GCP-GCS-001": {
+				Name:      "GCP Storage Bucket Missing Uniform Bucket-Level Access",
+				Enabled:   &enabled,
+				Severity:  "HIGH",
+				RiskScore: intPtr(25),
+			},
+			"GCP-SQL-001": {
+				Name:      "GCP Cloud SQL Allows Unrestricted Ingress (0.0.0.0/0)",
+				Enabled:   &enabled,
+				Severity:  "CRITICAL",
+				RiskScore: intPtr(50),
+			},
 		},
 	}
 }

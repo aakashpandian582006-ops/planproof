@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlanProof SOC Security Dashboard | Gate FAILED</title>
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --panel-bg: rgba(17, 24, 39, 0.75);
+      --card-bg: rgba(22, 30, 49, 0.65);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.4);
+      --text: #f3f4f6;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --critical: #ef4444;
+      --critical-glow: rgba(239, 68, 68, 0.25);
+      --high: #f97316;
+      --high-glow: rgba(249, 115, 22, 0.25);
+      --medium: #f59e0b;
+      --medium-glow: rgba(245, 158, 11, 0.25);
+      --low: #3b82f6;
+      --low-glow: rgba(59, 130, 246, 0.25);
+      --passed: #10b981;
+      --passed-glow: rgba(16, 185, 129, 0.25);
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(239, 68, 68, 0.05) 0%, transparent 40%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.5;
+      padding: 28px 20px 48px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+     
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-shield {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
+    }
+
+    .brand-text h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .telemetry-chips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--critical);
+      box-shadow: 0 0 8px var(--critical);
+    }
+
+     
+    .master-banner {
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+      border: 1px solid;
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .master-banner.passed {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 78, 59, 0.3));
+      border-color: var(--passed);
+      box-shadow: 0 8px 30px var(--passed-glow);
+    }
+
+    .master-banner.blocked {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(127, 29, 29, 0.3));
+      border-color: var(--critical);
+      box-shadow: 0 8px 30px var(--critical-glow);
+    }
+
+    .banner-main {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .banner-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .master-banner.passed .banner-icon {
+      background: var(--passed);
+      color: #fff;
+      box-shadow: 0 0 25px var(--passed);
+    }
+
+    .master-banner.blocked .banner-icon {
+      background: var(--critical);
+      color: #fff;
+      box-shadow: 0 0 25px var(--critical);
+    }
+
+    .banner-content h2 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+
+    .master-banner.passed .banner-content h2 { color: #34d399; }
+    .master-banner.blocked .banner-content h2 { color: #f87171; }
+
+    .banner-content p {
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .banner-meta {
+      text-align: right;
+    }
+
+    .banner-status-pill {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .master-banner.passed .banner-status-pill {
+      background: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+      border: 1px solid var(--passed);
+    }
+
+    .master-banner.blocked .banner-status-pill {
+      background: rgba(239, 68, 68, 0.25);
+      color: #f87171;
+      border: 1px solid var(--critical);
+    }
+
+     
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+     
+    .gauge-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .gauge-svg {
+      width: 90px;
+      height: 90px;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-circle-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 8;
+    }
+
+    .gauge-circle-progress {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 276;
+      stroke-dashoffset: 0;
+      stroke: var(--critical);
+      transition: stroke-dashoffset 0.8s ease-in-out;
+    }
+
+    .gauge-text {
+      flex: 1;
+    }
+
+    .gauge-score {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .gauge-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+     
+    .sev-bar-wrap {
+      margin-bottom: 16px;
+    }
+
+    .sev-progress-bar {
+      height: 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .sev-seg-critical { background: var(--critical); }
+    .sev-seg-high     { background: var(--high); }
+    .sev-seg-medium   { background: var(--medium); }
+    .sev-seg-low      { background: var(--low); }
+
+    .sev-pills {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .sev-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .sev-pill.crit { border-left: 3px solid var(--critical); color: #fca5a5; }
+    .sev-pill.hi   { border-left: 3px solid var(--high); color: #fdba74; }
+    .sev-pill.med  { border-left: 3px solid var(--medium); color: #fde047; }
+    .sev-pill.lo   { border-left: 3px solid var(--low); color: #93c5fd; }
+
+    .sev-pill-count {
+      font-weight: 800;
+      color: #fff;
+    }
+
+     
+    .filter-bar {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .search-input {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      color: #fff;
+      font-size: 13px;
+      min-width: 280px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+     
+    .violations-wrap {
+      margin-bottom: 36px;
+    }
+
+    .soc-violation-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .soc-violation-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .v-header-btn {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 16px 20px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: inherit;
+    }
+
+    .v-title-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .badge.critical { background: var(--critical); color: #fff; }
+    .badge.high     { background: var(--high); color: #fff; }
+    .badge.medium   { background: var(--medium); color: #111; }
+    .badge.low      { background: var(--low); color: #fff; }
+
+    .cloud-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .rule-id-text {
+      font-family: monospace;
+      color: #93c5fd;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .rule-name-text {
+      color: #f1f5f9;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .risk-impact-pill {
+      font-size: 12px;
+      font-weight: 800;
+      color: #f87171;
+      background: rgba(239, 68, 68, 0.15);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .v-body {
+      padding: 0 20px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      margin-top: 4px;
+    }
+
+    .json-path-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 12px 0;
+      font-family: monospace;
+      font-size: 12px;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .json-path-label {
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .v-desc-text {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+
+    .remediation-block {
+      background: rgba(15, 23, 42, 0.85);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      padding: 12px 16px;
+      position: relative;
+    }
+
+    .remediation-head {
+      font-size: 12px;
+      font-weight: 700;
+      color: #818cf8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .remediation-code {
+      font-family: monospace;
+      font-size: 13px;
+      color: #e2e8f0;
+      word-break: break-all;
+    }
+
+     
+    .zero-state {
+      background: var(--panel-bg);
+      border: 1px solid var(--passed);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .zero-shield {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--passed);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 30px var(--passed-glow);
+    }
+
+    .zero-state h3 {
+      font-size: 18px;
+      color: #34d399;
+      margin-bottom: 6px;
+      font-weight: 800;
+    }
+
+    .zero-state p {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+     
+    .soc-footer {
+      text-align: center;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <header class="top-bar">
+      <div class="brand-wrap">
+        <div class="brand-shield">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>PLANPROOF // SOC SECURITY OPERATIONS</h1>
+          <p>Multi-Cloud IaC Policy Engine & Risk Gate</p>
+        </div>
+      </div>
+      <div class="telemetry-chips">
+        <div class="chip">
+          <span class="chip-live-dot"></span>
+          Gate: <strong>FAILED</strong>
+        </div>
+        <div class="chip">Policy: Enterprise Baseline Security Policy (v1.0)</div>
+        <div class="chip">Audited: 2026-10-22 09:35:07 UTC</div>
+      </div>
+    </header>
+
+    
+    <section class="master-banner blocked">
+      <div class="banner-main">
+        <div class="banner-icon">✕</div>
+        <div class="banner-content">
+          <h2>GATE STATUS: [FAILED] DEPLOYMENT BLOCKED (UNACCEPTABLE RISK)</h2>
+          <p>Deployment halted. Risk score 50 (threshold: 50) or Critical risks identified.</p>
+        </div>
+      </div>
+      <div class="banner-meta">
+        <div class="banner-status-pill">FAILED</div>
+        <div style="font-size: 12px; color: #94a3b8;">Plan: testdata/aws_demo/aws_unsafe_plan.json</div>
+      </div>
+    </section>
+
+    
+    <section class="dashboard-grid">
+      
+      <div class="card">
+        <div class="card-title">
+          <span>Cumulative Risk Score</span>
+          <span>Threshold: 50</span>
+        </div>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 100 100">
+            <circle class="gauge-circle-bg" cx="50" cy="50" r="44"/>
+            <circle class="gauge-circle-progress" cx="50" cy="50" r="44"/>
+          </svg>
+          <div class="gauge-text">
+            <div class="gauge-score">50</div>
+            <div class="gauge-sub">/ 50 max risk pts</div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="card">
+        <div class="card-title">
+          <span>Severity Distribution</span>
+          <span>1 total</span>
+        </div>
+        <div class="sev-bar-wrap">
+          <div class="sev-progress-bar">
+            
+            <div class="sev-seg-critical" style="width: 100%;"></div>
+            
+            
+            
+          </div>
+          <div class="sev-pills">
+            <div class="sev-pill crit">
+              <span>CRITICAL</span>
+              <span class="sev-pill-count">1</span>
+            </div>
+            <div class="sev-pill hi">
+              <span>HIGH</span>
+              <span class="sev-pill-count">0</span>
+            </div>
+            <div class="sev-pill med">
+              <span>MEDIUM</span>
+              <span class="sev-pill-count">0</span>
+            </div>
+            <div class="sev-pill lo">
+              <span>LOW</span>
+              <span class="sev-pill-count">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="card">
+        <div class="card-title">
+          <span>Resources Scanned</span>
+          <span>IaC Scope</span>
+        </div>
+        <div style="font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 4px;">
+          1
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted);">Resource change blocks parsed from execution plan.</div>
+      </div>
+
+      
+      <div class="card">
+        <div class="card-title">
+          <span>Policy Enforcement</span>
+          <span>SOC Active</span>
+        </div>
+        <div style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px;">
+          Enterprise Baseline Security Policy
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted);">
+          Zero-tolerance on CRITICAL risks; threshold cut-off at 50 points.
+        </div>
+      </div>
+    </section>
+
+    
+    <div class="filter-bar">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search by rule ID, resource address, or cloud provider..." onkeyup="filterViolations()">
+      <div class="filter-tabs">
+        <button class="tab-btn active" onclick="setSeverityFilter('ALL', this)">ALL (1)</button>
+        <button class="tab-btn" onclick="setSeverityFilter('CRITICAL', this)">CRITICAL (1)</button>
+        <button class="tab-btn" onclick="setSeverityFilter('HIGH', this)">HIGH (0)</button>
+        <button class="tab-btn" onclick="setSeverityFilter('MEDIUM', this)">MEDIUM (0)</button>
+        <button class="tab-btn" onclick="setSeverityFilter('LOW', this)">LOW (0)</button>
+      </div>
+    </div>
+
+    
+    <section class="violations-wrap">
+      
+        
+        <div class="soc-violation-card violation-item" data-severity="CRITICAL" data-search="STATE-001 aws_db_instance.prod_db aws_db_instance AWS">
+          <button class="v-header-btn" onclick="toggleCard(this)">
+            <div class="v-title-meta">
+              <span class="badge critical">CRITICAL</span>
+              <span class="cloud-pill">AWS</span>
+              <span class="rule-id-text">STATE-001</span>
+              <span class="rule-name-text">Stateful Resource Destruction Guard</span>
+            </div>
+            <span class="risk-impact-pill">+50 pts</span>
+          </button>
+          <div class="v-body">
+            <div class="json-path-box">
+              <div>
+                <span class="json-path-label">Target AST JSON Path: </span>
+                <code>resource_changes[address=&#34;aws_db_instance.prod_db&#34;].change.actions</code>
+              </div>
+              <span class="cloud-pill">aws_db_instance</span>
+            </div>
+            <p class="v-desc-text">Stateful resource &#39;aws_db_instance.prod_db&#39; (aws_db_instance) is scheduled for DESTRUCTION without disaster recovery validation.</p>
+            
+            <div class="remediation-block">
+              <div class="remediation-head">
+                <span>Actionable Remediation Guidance</span>
+                <button class="copy-btn" onclick="copyRemediation(this)">Copy Snippet</button>
+              </div>
+              <div class="remediation-code">Add &#39;lifecycle { prevent_destroy = true }&#39; to &#39;aws_db_instance.prod_db&#39; block or enable deletion protection.</div>
+            </div>
+            
+          </div>
+        </div>
+        
+      
+    </section>
+
+    
+    <footer class="soc-footer">
+      Generated by <strong>PlanProof v1.2.0</strong> | Enterprise IaC Security Engine & Automated Pipeline Gate
+    </footer>
+  </div>
+
+  <script>
+    let activeSeverity = 'ALL';
+
+    function setSeverityFilter(sev, btn) {
+      activeSeverity = sev;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterViolations();
+    }
+
+    function filterViolations() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const items = document.querySelectorAll('.violation-item');
+
+      items.forEach(item => {
+        const itemSev = item.getAttribute('data-severity');
+        const itemSearch = item.getAttribute('data-search').toLowerCase();
+
+        const matchesSev = (activeSeverity === 'ALL' || itemSev === activeSeverity);
+        const matchesQuery = itemSearch.includes(query);
+
+        if (matchesSev && matchesQuery) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    function toggleCard(btn) {
+      const body = btn.nextElementSibling;
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+      } else {
+        body.style.display = 'none';
+      }
+    }
+
+    function copyRemediation(btn) {
+      const code = btn.closest('.remediation-block').querySelector('.remediation-code').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const orig = btn.innerText;
+        btn.innerText = 'Copied!';
+        setTimeout(() => { btn.innerText = orig; }, 1500);
+      });
+    }
+  </script>
+</body>
+</html>

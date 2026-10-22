@@ -63,3 +63,39 @@ rules:
     enabled: true
     severity: "CRITICAL"
     risk_score: 50
+
+  # 7. RDS Instance Publicly Accessible
+  AWS-RDS-001:
+    name: "RDS Instance Publicly Accessible"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 8. Azure Storage Account Allows Public Blob Access
+  AZURE-BLOB-001:
+    name: "Azure Storage Account Allows Public Blob Access"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 9. Azure Database Firewall Allows 0.0.0.0 Open Ingress
+  AZURE-SQL-001:
+    name: "Azure Database Firewall Allows 0.0.0.0 Open Ingress"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 10. GCP Cloud Storage Missing Uniform Bucket-Level Access
+  GCP-GCS-001:
+    name: "GCP Storage Bucket Missing Uniform Bucket-Level Access"
+    enabled: true
+    severity: "HIGH"
+    risk_score: 25
+
+  # 11. GCP Cloud SQL Allows Unrestricted Ingress (0.0.0.0/0)
+  GCP-SQL-001:
+    name: "GCP Cloud SQL Allows Unrestricted Ingress (0.0.0.0/0)"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
