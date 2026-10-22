@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"planproof/pkg/config"
 	"planproof/pkg/rules"
 )
 
@@ -25,6 +26,7 @@ type SeveritySummary struct {
 // RiskReport captures the comprehensive risk evaluation of a plan.
 type RiskReport struct {
 	IsUnsafe       bool              `json:"is_unsafe"`
+	GateStatus     string            `json:"gate_status"`
 	RiskScore      int               `json:"risk_score"`
 	Threshold      int               `json:"threshold"`
 	Violations     []string          `json:"violations"`
@@ -32,17 +34,28 @@ type RiskReport struct {
 	TotalChanges   int               `json:"total_changes"`
 	RuleViolations []rules.Violation `json:"rule_violations"`
 	Summary        SeveritySummary   `json:"summary"`
+	PolicyName     string            `json:"policy_name,omitempty"`
+	PolicyVersion  string            `json:"policy_version,omitempty"`
 }
 
-// AnalyzePlan analyzes plan data using the default risk threshold of 50.
+// AnalyzePlan analyzes plan data using default baseline policy configuration.
 func AnalyzePlan(planData []byte) (*RiskReport, error) {
-	return AnalyzePlanWithThreshold(planData, 50)
+	return AnalyzePlanWithPolicy(planData, config.DefaultConfig())
 }
 
 // AnalyzePlanWithThreshold analyzes plan data using a custom risk threshold.
 func AnalyzePlanWithThreshold(planData []byte, threshold int) (*RiskReport, error) {
-	if threshold <= 0 {
-		threshold = 50
+	cfg := config.DefaultConfig()
+	if threshold > 0 {
+		cfg.Gate.Threshold = threshold
+	}
+	return AnalyzePlanWithPolicy(planData, cfg)
+}
+
+// AnalyzePlanWithPolicy analyzes plan data using a comprehensive PolicyConfig.
+func AnalyzePlanWithPolicy(planData []byte, cfg *config.PolicyConfig) (*RiskReport, error) {
+	if cfg == nil {
+		cfg = config.DefaultConfig()
 	}
 
 	var plan TerraformPlan
@@ -52,19 +65,31 @@ func AnalyzePlanWithThreshold(planData []byte, threshold int) (*RiskReport, erro
 
 	report := &RiskReport{
 		IsUnsafe:       false,
+		GateStatus:     "PASSED",
 		RiskScore:      0,
-		Threshold:      threshold,
+		Threshold:      cfg.Gate.Threshold,
 		Violations:     []string{},
 		Remediations:   []string{},
 		TotalChanges:   len(plan.ResourceChanges),
 		RuleViolations: []rules.Violation{},
 		Summary:        SeveritySummary{},
+		PolicyName:     cfg.Name,
+		PolicyVersion:  cfg.Version,
 	}
 
 	engine := rules.NewRuleEngine()
-	violations := engine.Evaluate(plan.ResourceChanges)
+	rawViolations := engine.Evaluate(plan.ResourceChanges)
 
-	for _, v := range violations {
+	for _, v := range rawViolations {
+		// Filter out disabled rules according to policy
+		if !cfg.IsRuleEnabled(v.RuleID) {
+			continue
+		}
+
+		// Apply severity and risk score overrides from policy
+		v.Severity = rules.Severity(cfg.GetRuleSeverity(v.RuleID, string(v.Severity)))
+		v.RiskScore = cfg.GetRuleRiskScore(v.RuleID, string(v.Severity), v.RiskScore)
+
 		report.RuleViolations = append(report.RuleViolations, v)
 		report.RiskScore += v.RiskScore
 
@@ -89,9 +114,12 @@ func AnalyzePlanWithThreshold(planData []byte, threshold int) (*RiskReport, erro
 		}
 	}
 
-	// Gate fails if calculated risk score meets/exceeds threshold or critical risks exist
-	if report.RiskScore >= threshold || report.Summary.Critical > 0 {
+	// Gate fails if calculated risk score meets/exceeds threshold or critical/high policy triggers fire
+	if report.RiskScore >= cfg.Gate.Threshold ||
+		(cfg.Gate.FailOnCritical && report.Summary.Critical > 0) ||
+		(cfg.Gate.FailOnHigh && report.Summary.High > 0) {
 		report.IsUnsafe = true
+		report.GateStatus = "FAILED"
 	}
 
 	return report, nil

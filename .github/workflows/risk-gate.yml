@@ -26,8 +26,8 @@ jobs:
         run: go build -o planproof main.go
 
       - name: Run Risk Analysis on Safe Plan (Must Pass)
-        run: ./planproof -plan testdata/aws_demo/aws_production_plan.json -threshold 50
+        run: ./planproof -plan testdata/aws_demo/aws_production_plan.json -config policy.yaml -output-html safe_report.html -output-json safe_report.json
 
       - name: Verify Risk Gate Interception on Unsafe Plan (Must Block)
         run: |
-          ./planproof -plan testdata/aws_demo/aws_unsafe_plan.json -threshold 50 && exit 1 || echo "PlanProof Risk Gate successfully intercepted and blocked unsafe stateful changes."
+          ./planproof -plan testdata/aws_demo/aws_unsafe_plan.json -config policy.yaml -output-html report.html -output-json report.json && exit 1 || echo "PlanProof Risk Gate successfully intercepted and blocked unsafe stateful changes."

@@ -11,6 +11,12 @@ planproof
 *.tfstate
 *.tfstate.*
 
+# Generated audit reports
+report.html
+report.json
+report_safe.html
+report_safe.json
+
 # Test artifacts & OS files
 .DS_Store
 *.test

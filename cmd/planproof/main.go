@@ -6,11 +6,16 @@ import (
 	"os"
 
 	"planproof/pkg/analyzer"
+	"planproof/pkg/config"
+	"planproof/pkg/reporter"
 )
 
 func main() {
 	planFlag := flag.String("plan", "", "Path to Terraform Plan JSON file")
 	thresholdFlag := flag.Int("threshold", 50, "Risk score threshold to halt deployment (default: 50)")
+	configFlag := flag.String("config", "", "Path to YAML policy config file (e.g. policy.yaml)")
+	outputHTMLFlag := flag.String("output-html", "", "Path to export HTML security report (e.g. report.html)")
+	outputJSONFlag := flag.String("output-json", "", "Path to export JSON security report (e.g. report.json)")
 	flag.Parse()
 
 	planPath := *planFlag
@@ -25,20 +30,76 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 1. Resolve Policy Configuration
+	var cfg *config.PolicyConfig
+	var err error
+	if *configFlag != "" {
+		cfg, err = config.LoadConfig(*configFlag)
+		if err != nil {
+			fmt.Printf("Error loading config file '%s': %v\n", *configFlag, err)
+			os.Exit(1)
+		}
+	} else if _, statErr := os.Stat("policy.yaml"); statErr == nil {
+		// Automatically use default policy.yaml in current directory if present
+		cfg, err = config.LoadConfig("policy.yaml")
+		if err != nil {
+			fmt.Printf("Warning: failed to parse local policy.yaml: %v. Using default baseline policy.\n", err)
+			cfg = config.DefaultConfig()
+		}
+	} else {
+		cfg = config.DefaultConfig()
+	}
+
+	// If -threshold was explicitly set on command line, override config
+	thresholdExplicit := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "threshold" {
+			thresholdExplicit = true
+		}
+	})
+	if thresholdExplicit {
+		cfg.Gate.Threshold = *thresholdFlag
+	}
+
+	// 2. Read Target Terraform Plan JSON
 	planData, err := os.ReadFile(planPath)
 	if err != nil {
 		fmt.Printf("Error reading plan file '%s': %v\n", planPath, err)
 		os.Exit(1)
 	}
 
-	report, err := analyzer.AnalyzePlanWithThreshold(planData, *thresholdFlag)
+	// 3. Analyze Plan against Policy
+	report, err := analyzer.AnalyzePlanWithPolicy(planData, cfg)
 	if err != nil {
 		fmt.Printf("Error analyzing plan: %v\n", err)
 		os.Exit(1)
 	}
 
+	// 4. Print CLI Console Audit Report
 	printReport(planPath, report)
 
+	// 5. Build Report Export Payload
+	reportData := reporter.BuildReportData(planPath, report)
+
+	// 6. Optional JSON Export
+	if *outputJSONFlag != "" {
+		if err := reporter.ExportJSON(reportData, *outputJSONFlag); err != nil {
+			fmt.Printf("Error generating JSON report: %v\n", err)
+		} else {
+			fmt.Printf("Structured JSON report generated: %s\n", *outputJSONFlag)
+		}
+	}
+
+	// 7. Optional HTML Export
+	if *outputHTMLFlag != "" {
+		if err := reporter.ExportHTML(reportData, *outputHTMLFlag); err != nil {
+			fmt.Printf("Error generating HTML report: %v\n", err)
+		} else {
+			fmt.Printf("Executive HTML security report generated: %s\n", *outputHTMLFlag)
+		}
+	}
+
+	// 8. Pipeline Gate Decision
 	if report.IsUnsafe {
 		os.Exit(1)
 	}
@@ -50,6 +111,9 @@ func printReport(planPath string, report *analyzer.RiskReport) {
 	fmt.Println("          PLANPROOF: ENTERPRISE IAC RISK GATE & SECURITY AUDITOR                ")
 	fmt.Println("================================================================================")
 	fmt.Printf("Target Plan File:                 %s\n", planPath)
+	if report.PolicyName != "" {
+		fmt.Printf("Active Policy:                    %s (v%s)\n", report.PolicyName, report.PolicyVersion)
+	}
 	fmt.Printf("Total Resource Changes Evaluated: %d\n", report.TotalChanges)
 	fmt.Printf("Configured Risk Threshold:        %d\n", report.Threshold)
 	fmt.Printf("Calculated Overall Risk Score:    %d\n", report.RiskScore)

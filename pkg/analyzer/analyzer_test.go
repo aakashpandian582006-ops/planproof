@@ -2,6 +2,8 @@ package analyzer
 
 import (
 	"testing"
+
+	"planproof/pkg/config"
 )
 
 func TestAnalyzePlan_Safe(t *testing.T) {
@@ -188,3 +190,59 @@ func TestAnalyzePlanWithThreshold(t *testing.T) {
 		t.Errorf("Expected IsUnsafe false with threshold 50, got true")
 	}
 }
+
+func TestAnalyzePlanWithPolicy(t *testing.T) {
+	s3PlanJSON := []byte(`{
+		"format_version": "1.2",
+		"terraform_version": "1.5.0",
+		"resource_changes": [
+			{
+				"address": "aws_s3_bucket.logs",
+				"type": "aws_s3_bucket",
+				"name": "logs",
+				"change": {
+					"actions": ["create"],
+					"after": {
+						"bucket": "app-logs"
+					}
+				}
+			}
+		]
+	}`)
+
+	// Test 1: Rule disabled via policy
+	cfgDisabled := config.DefaultConfig()
+	disabled := false
+	cfgDisabled.Rules["AWS-S3-001"] = config.RuleConfig{
+		Enabled: &disabled,
+	}
+
+	reportDisabled, err := AnalyzePlanWithPolicy(s3PlanJSON, cfgDisabled)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(reportDisabled.RuleViolations) != 0 {
+		t.Errorf("Expected 0 violations when rule is disabled, got %d", len(reportDisabled.RuleViolations))
+	}
+	if reportDisabled.IsUnsafe {
+		t.Errorf("Expected plan to pass when rule is disabled")
+	}
+
+	// Test 2: Custom risk score override via policy
+	cfgScore := config.DefaultConfig()
+	customScore := 60
+	cfgScore.Rules["AWS-S3-001"] = config.RuleConfig{
+		RiskScore: &customScore,
+	}
+	reportScore, err := AnalyzePlanWithPolicy(s3PlanJSON, cfgScore)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if reportScore.RiskScore != 60 {
+		t.Errorf("Expected risk score 60, got %d", reportScore.RiskScore)
+	}
+	if !reportScore.IsUnsafe {
+		t.Errorf("Expected plan to fail when risk score 60 >= threshold 50")
+	}
+}
+

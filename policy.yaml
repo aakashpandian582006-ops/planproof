@@ -1,0 +1,65 @@
+# ==============================================================================
+# PlanProof Enterprise Policy Configuration
+# ==============================================================================
+# This file governs IaC security compliance rules, risk gate thresholds, and 
+# severity impact points evaluated against Terraform plan JSON files.
+
+version: "1.0"
+name: "Enterprise Baseline Security Policy"
+
+# Global Deployment Gate Configuration
+gate:
+  threshold: 50           # Maximum permissible cumulative risk score (>= halts CI/CD)
+  fail_on_critical: true  # Always fail gate if any CRITICAL severity violation is found
+  fail_on_high: false     # Fail gate if any HIGH severity violation is found (default: false)
+
+# Default Severity Risk Point Weights
+severity_weights:
+  critical: 50
+  high: 25
+  medium: 15
+  low: 5
+
+# Individual Rule Configuration & Severity Overrides
+rules:
+  # 1. Stateful Destruction Guard
+  STATE-001:
+    name: "Stateful Resource Destruction Guard"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 2. S3 Bucket Missing Server-Side Encryption
+  AWS-S3-001:
+    name: "S3 Bucket Missing Server-Side Encryption"
+    enabled: true
+    severity: "HIGH"
+    risk_score: 25
+
+  # 3. S3 Bucket Public ACL
+  AWS-S3-002:
+    name: "S3 Bucket Public ACL Allowed"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 4. Open Ingress SSH (0.0.0.0/0 on Port 22)
+  AWS-SG-001:
+    name: "Security Group Ingress Allows Open SSH Access (0.0.0.0/0)"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
+
+  # 5. Open Ingress RDP (0.0.0.0/0 on Port 3389)
+  AWS-SG-002:
+    name: "Security Group Ingress Allows Open RDP Access (0.0.0.0/0)"
+    enabled: true
+    severity: "HIGH"
+    risk_score: 35
+
+  # 6. IAM Wildcard Admin Privileges (*:*)
+  AWS-IAM-001:
+    name: "IAM Policy Grants Wildcard Admin Privileges (*:*)"
+    enabled: true
+    severity: "CRITICAL"
+    risk_score: 50
